@@ -19,7 +19,16 @@ const SIZES: Record<string, string> = {
 }
 
 type Pref = { server: string; project: string; expires: number }
+type Counts = { input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number }
 const PREFS_KEY = "prefs"
+const zeroCounts = (): Counts => ({ input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 })
+function addTokens(into: Counts, t: any) {
+  into.input += Number(t?.input ?? 0)
+  into.output += Number(t?.output ?? 0)
+  into.reasoning += Number(t?.reasoning ?? 0)
+  into.cacheRead += Number(t?.cache?.read ?? 0)
+  into.cacheWrite += Number(t?.cache?.write ?? 0)
+}
 
 function parseTtl(raw: unknown): number {
   if (raw === undefined || raw === null || raw === "") return DEFAULT_TTL
@@ -108,10 +117,49 @@ export default Plugin.define({
         await storage.set(PREFS_KEY, [...prefs.values()])
       } catch {}
     }
+    const projectNames = new Map<string, string>()
+    const rememberProject = (id: unknown, location: unknown) => {
+      const key = String(id ?? "")
+      if (!key || projectNames.has(key)) return
+      const dir = String((location as { directory?: string })?.directory ?? "")
+      const name = dir.split("/").filter(Boolean).pop() ?? ""
+      projectNames.set(key, name || key.slice(0, 8))
+    }
+    rememberProject((ctx as any).location?.project?.id, (ctx as any).location?.project)
+
+    function collectTokens(listed: any[]) {
+      const total = zeroCounts()
+      const byProject = new Map<string, Counts>()
+      for (const s of listed) {
+        addTokens(total, s?.tokens)
+        rememberProject(s?.projectID, s?.location)
+        const pid = String(s?.projectID ?? "")
+        if (!pid) continue
+        const c = byProject.get(pid) ?? zeroCounts()
+        addTokens(c, s?.tokens)
+        byProject.set(pid, c)
+      }
+      const projects = [...byProject]
+        .map(([id, c]) => ({
+          id,
+          name: projectNames.get(id) ?? id.slice(0, 8),
+          ...c,
+        }))
+        .sort((a, b) => b.input + b.output - (a.input + a.output) || b.output - a.output)
+      return { total, projects }
+    }
+
     let states: HostState[] = []
     let callerID = ""
     let allSessions: { id: string; parent: string }[] = []
-    let snap: Snapshot = { updated: 0, agents: [], hosts: [], sessions: [], prefs: [] }
+    let snap: Snapshot = {
+      updated: 0,
+      agents: [],
+      hosts: [],
+      sessions: [],
+      prefs: [],
+      tokens: { total: zeroCounts(), projects: [] },
+    }
     let fleetReg: Awaited<ReturnType<typeof ctx.rpc.register<typeof Fleet>>> | undefined
 
     const root = join(process.env.HOME ?? "", ".config", "opencode")
@@ -193,7 +241,14 @@ export default Plugin.define({
       const current = cfg
         ? `\nagente: ${cfg.id} ${cfg.host || cfg.provider}/${cfg.model} [${cfg.params} ctx ${Math.round(cfg.ctx / 1024)}K]`
         : ""
-      return `<fleet-live>${current}\nagentes: ${agentLine}\nservidores: ${serverLine}${prefLine(now)}\n</fleet-live>`
+      const t = s.tokens.total
+      const compact = (n: number) =>
+        n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n)
+      const tokLine = `\ntokens: total in ${compact(t.input)} out ${compact(t.output)} cache ${compact(t.cacheRead)}` +
+        (s.tokens.projects.length
+          ? ` | ${s.tokens.projects.slice(0, 4).map((p) => `${p.name} ${compact(p.input + p.output)}`).join(" ")}`
+          : "")
+      return `<fleet-live>${current}\nagentes: ${agentLine}\nservidores: ${serverLine}${prefLine(now)}${tokLine}\n</fleet-live>`
     }
 
     async function refresh() {
@@ -251,6 +306,7 @@ export default Plugin.define({
         })),
         sessions,
         prefs: activePrefs(now),
+        tokens: collectTokens(listed),
       }
 
       if (fleetReg) void fleetReg.events.emit("updated", { updated: now })

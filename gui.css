@@ -146,6 +146,47 @@
   max-width: 220px;
 }
 
+.fl-tokbar {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  opacity: 0.8;
+  padding: 0 4px;
+  border: 1px solid var(--border, #333);
+  border-radius: 3px;
+}
+
+.fl-tok-total,
+.fl-tok-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fl-tok-total {
+  font-weight: 700;
+  padding-bottom: 4px;
+}
+
+.fl-tok-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px 0;
+}
+
+.fl-tok-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fl-tok-fill {
+  background: var(--accent, #6c8cff) !important;
+  opacity: 0.75;
+}
+
 .fl-pref {
   display: grid;
   grid-template-columns: auto 14px 1fr auto;

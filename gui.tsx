@@ -70,6 +70,48 @@ function AgentRows(props: { agents: Agent[] }) {
   )
 }
 
+const compact = (n: number) =>
+  n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n)
+
+type Tokens = Snapshot["tokens"]
+type ProjectTokens = Tokens["projects"][number]
+
+function TokenView(props: { tokens: Tokens }) {
+  const t = () => props.tokens
+  const max = () => Math.max(1, ...t().projects.map((p) => p.input + p.output))
+  const width = (p: ProjectTokens) => `${Math.round(((p.input + p.output) / max()) * 100)}%`
+  return (
+    <Show
+      when={t().projects.length}
+      fallback={
+        <div class="fl-empty">
+          total in {compact(t().total.input)} · out {compact(t().total.output)} · cache {compact(t().total.cacheRead)}
+        </div>
+      }
+    >
+      <div class="fl-tok-total">
+        <span>geral</span>
+        <span class="fl-meta">
+          in {compact(t().total.input)} · out {compact(t().total.output)} · cache {compact(t().total.cacheRead)}
+        </span>
+      </div>
+      <For each={t().projects}>
+        {(p) => (
+          <div class="fl-tok-row" title={`${p.id} · in ${p.input.toLocaleString()} · out ${p.output.toLocaleString()}`}>
+            <div class="fl-tok-line">
+              <span class="fl-tok-name">{p.name}</span>
+              <span class="fl-meta">{compact(p.input + p.output)}</span>
+            </div>
+            <div class="fl-track">
+              <div class="fl-fill fl-tok-fill" style={{ width: width(p) }} />
+            </div>
+          </div>
+        )}
+      </For>
+    </Show>
+  )
+}
+
 function PrefRows(props: { prefs: Snapshot["prefs"] }) {
   return (
     <Show when={props.prefs.length} fallback={<div class="fl-empty">nenhuma preferência declarada</div>}>
@@ -111,6 +153,14 @@ function FleetView(props: { snap: () => Snapshot | undefined }) {
           <span class="fl-meta">{s()?.agents.length ?? 0}</span>
         </div>
         <AgentRows agents={s()?.agents ?? []} />
+      </div>
+
+      <div class="fl-section">
+        <div class="fl-heading">
+          <span>tokens por projeto</span>
+          <span class="fl-meta">{s()?.tokens.projects.length ?? 0}</span>
+        </div>
+        <TokenView tokens={s()?.tokens ?? { total: { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 }, projects: [] }} />
       </div>
 
       <div class="fl-section">
@@ -164,6 +214,11 @@ export default Plugin.define({
           <Show when={(snap()?.prefs.length ?? 0) > 0}>
             <span class="fl-prefbar">
               {snap()!.prefs.map((p) => `${p.server}=${p.project}`).join(" | ")}
+            </span>
+          </Show>
+          <Show when={snap()?.tokens}>
+            <span class="fl-tokbar" title="tokens: input / output / cache lido">
+              {compact(snap()!.tokens.total.input + snap()!.tokens.total.output)}
             </span>
           </Show>
           <span class="fl-meta">{snap()?.agents.length ?? 0} ag</span>

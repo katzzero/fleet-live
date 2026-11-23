@@ -49,6 +49,44 @@ const pref = {
   additionalProperties: false,
 } as const
 
+const tokenCounts = {
+  type: "object",
+  properties: {
+    input: { type: "number" },
+    output: { type: "number" },
+    reasoning: { type: "number" },
+    cacheRead: { type: "number" },
+    cacheWrite: { type: "number" },
+  },
+  required: ["input", "output", "reasoning", "cacheRead", "cacheWrite"],
+  additionalProperties: false,
+} as const
+
+const projectTokens = {
+  type: "object",
+  properties: {
+    id: { type: "string" },
+    name: { type: "string" },
+    input: { type: "number" },
+    output: { type: "number" },
+    reasoning: { type: "number" },
+    cacheRead: { type: "number" },
+    cacheWrite: { type: "number" },
+  },
+  required: ["id", "name", "input", "output", "reasoning", "cacheRead", "cacheWrite"],
+  additionalProperties: false,
+} as const
+
+const tokens = {
+  type: "object",
+  properties: {
+    total: tokenCounts,
+    projects: { type: "array", items: projectTokens },
+  },
+  required: ["total", "projects"],
+  additionalProperties: false,
+} as const
+
 const host = {
   type: "object",
   properties: {
@@ -88,8 +126,9 @@ export const Fleet = Rpc.define({
           hosts: { type: "array", items: host },
           sessions: { type: "array", items: session },
           prefs: { type: "array", items: pref },
+          tokens: tokens,
         },
-        required: ["updated", "agents", "hosts", "sessions", "prefs"],
+        required: ["updated", "agents", "hosts", "sessions", "prefs", "tokens"],
         additionalProperties: false,
       },
     },
@@ -112,6 +151,18 @@ export type Snapshot = {
   hosts: { label: string; provider: string; ok: boolean; models: string[]; sessions: string[] }[]
   sessions: { id: string; agent: string; model: string; provider: string; age: number; parentID: string }[]
   prefs: { server: string; project: string; ttl: string }[]
+  tokens: {
+    total: { input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number }
+    projects: {
+      id: string
+      name: string
+      input: number
+      output: number
+      reasoning: number
+      cacheRead: number
+      cacheWrite: number
+    }[]
+  }
 }
 
 
