@@ -6,13 +6,14 @@ The core idea: an orchestrator should choose *where* to delegate based on what i
 
 ## Features
 
-- **Live context block** — a `<fleet-live>` block is injected into the agent's system prompt with active agents, per-host resident models, and session IDs.
+- **Live context block** — a `<fleet-live>` block is injected into the agent's system prompt with active agents, per-host resident models, session IDs, and token totals.
+- **Token accounting** — aggregate `input`/`output`/`reasoning`/`cache` tokens across all sessions, with a grand total and a per-project breakdown (project names derived from each session's `location.directory`).
 - **`fleet_status`** — on-demand snapshot of agents in session and resident models per server.
 - **`agent_config`** — resolved model, quantization and context limit for one agent (or all).
 - **`fleet_prefer`** — declare an advisory server↔project affinity with a TTL; never blocks delegation.
 - **`fleet_interrupt`** — interrupt a stuck or superseded run by session ID or agent name. Restricted to sessions descended from the caller, so an agent can never kill work started by someone else.
-- **Desktop GUI** — a compact bottom bar (`FROTA`), a side panel, and a `/frota` command.
-- **Terminal UI** — a footer indicator, a `fleet-status` slash command, and a panel.
+- **Desktop GUI** — a compact bottom bar (`FROTA`) with a token pill, a side panel with per-project token bars, and a `/frota` command.
+- **Terminal UI** — a footer indicator, a `fleet-status` slash command, and a panel with token totals.
 - **RPC** — a shared `Fleet` contract (`snapshot`, `agentConfig`, `updated` event) consumed by both UIs.
 
 All preference state is in-memory: it expires on its own and is wiped on restart. Nothing is written to config.
@@ -70,7 +71,7 @@ tui.tsx           terminal UI (Solid + @opencode/plugin/tui)
 vite.config.ts    build preset; emits dist/gui-experimental.cjs
 ```
 
-The server reads the OpenCode config to resolve per-agent model references (both inline agent definitions and `agent/*.md` frontmatter), matches providers to host labels, and keeps a 2-second polling loop. The GUI bundle is prebuilt and committed, so a plain clone works without a build step.
+The server reads the OpenCode config to resolve per-agent model references (both inline agent definitions and `agent/*.md` frontmatter), matches providers to host labels, and keeps a 2-second polling loop. Token totals are computed from each session's `tokens` field and grouped by `projectID`; project names come from the session's `location.directory`, so no authenticated HTTP call is needed. The GUI bundle is prebuilt and committed, so a plain clone works without a build step.
 
 ## Build
 
