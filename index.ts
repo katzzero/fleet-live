@@ -188,7 +188,9 @@ export default Plugin.define({
     }
 
     for (const [id, agent] of Object.entries<any>(cfg.agent ?? {})) {
-      if (agent?.model?.providerID && agent?.model?.id) put(id, `${agent.model.providerID}/${agent.model.id}`)
+      const model = agent?.model
+      if (typeof model === "string") put(id, model)
+      else if (model?.providerID && model?.id) put(id, `${model.providerID}/${model.id}`)
     }
     for (const file of readdirSync(join(root, "agent"))) {
       if (!file.endsWith(".md")) continue
