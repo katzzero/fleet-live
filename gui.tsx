@@ -1,0 +1,173 @@
+/// <reference types="vite/client" />
+import { Command, Panel, Plugin, Slot, Style } from "@opencode/plugin/gui"
+import { Fleet, type Snapshot } from "./rpc"
+import { For, Show, createSignal, onCleanup } from "solid-js"
+import css from "./gui.css?inline"
+
+type Host = Snapshot["hosts"][number]
+type Agent = Snapshot["agents"][number]
+
+const short = (id: string) => id.slice(-6)
+
+const clock = (ts: number) => (ts ? new Date(ts).toLocaleTimeString() : "--:--:--")
+
+const SHORT: Record<string, string> = {
+  "qwen3.8:27b-mxfp8": "qwen27b",
+  "laguna-xs-2.1:mxfp8": "laguna33b",
+  "nemotron-3.5-super:120b-a12b-nvfp4": "nemo120b",
+  "nemotron-3.5-bolt:e4b-mxfp8": "bolt4b",
+  "flint:40b-a2b-qat-int4": "flint40b",
+  "bonsai-2:27b": "bonsai27b",
+  "muse-glimmer:30b-mlx": "muse30b",
+}
+
+const shortModel = (raw: string) => {
+  const tag = raw.split("@")[0]!.split("/").pop()!
+  return SHORT[tag] ?? tag
+}
+
+const tone = (h: Host) => (!h.ok ? "fl-off" : h.models.length ? "fl-on" : "fl-idle")
+
+const usage = (h: Host) => `${Math.min(100, h.sessions.length * 25)}%`
+
+function HostCells(props: { hosts: Host[] }) {
+  return (
+    <div class="fl-hosts">
+      <For each={props.hosts}>
+        {(h) => (
+          <div class="fl-host" title={`${h.label} · ${h.provider} · ${h.models.join(", ") || "livre"}`}>
+            <div class="fl-host-top">
+              <span class="fl-label">{h.label}</span>
+              <span class={`fl-model ${tone(h)}`}>{h.models.length ? shortModel(h.models[0]!) : h.ok ? "livre" : "offline"}</span>
+              <Show when={h.sessions.length}>
+                <span class="fl-count">{h.sessions.length}</span>
+              </Show>
+            </div>
+            <div class="fl-track">
+              <div class={`fl-fill ${tone(h)}`} style={{ width: usage(h), background: "currentColor" }} />
+            </div>
+          </div>
+        )}
+      </For>
+    </div>
+  )
+}
+
+function AgentRows(props: { agents: Agent[] }) {
+  return (
+    <Show when={props.agents.length} fallback={<div class="fl-empty">nenhum agente ativo</div>}>
+      <For each={props.agents}>
+        {(a) => (
+          <div class="fl-agent">
+            <span class="fl-name" title={a.id}>
+              {a.id}
+            </span>
+            <span class="fl-meta">{a.sessions.length} sess{String(a.sessions.length) === "1" ? "" : "ões"}</span>
+          </div>
+        )}
+      </For>
+    </Show>
+  )
+}
+
+function FleetView(props: { snap: () => Snapshot | undefined }) {
+  const s = () => props.snap()
+  const active = () => s()?.hosts.filter((h) => h.ok && h.models.length).length ?? 0
+  return (
+    <div class="fl-view">
+      <div class="fl-heading">
+        <span>frota ao vivo</span>
+        <span class="fl-meta">{clock(s()?.updated ?? 0)}</span>
+      </div>
+
+      <div class="fl-section">
+        <div class="fl-heading">
+          <span>servidores</span>
+          <span class="fl-meta">{active()}/{s()?.hosts.length ?? 0} ocupados</span>
+        </div>
+        <HostCells hosts={s()?.hosts ?? []} />
+      </div>
+
+      <div class="fl-section">
+        <div class="fl-heading">
+          <span>agentes em sessão</span>
+          <span class="fl-meta">{s()?.agents.length ?? 0}</span>
+        </div>
+        <AgentRows agents={s()?.agents ?? []} />
+      </div>
+
+      <div class="fl-hint">atualização automática a cada 3 s · origem: /api/ps + sessões locais</div>
+    </div>
+  )
+}
+
+export default Plugin.define({
+  setup(ctx) {
+    ctx.add(Style, css)
+
+    const [snap, setSnap] = createSignal<Snapshot | undefined>(undefined)
+    const rpc = ctx.client.rpc(Fleet)
+    let stopped = false
+
+    const refresh = async () => {
+      try {
+        const value = (await rpc.snapshot({})) as Snapshot
+        if (!stopped) setSnap(() => value)
+      } catch {}
+    }
+    void refresh()
+    const timer = setInterval(() => void refresh(), 3_000)
+    onCleanup(() => {
+      stopped = true
+      clearInterval(timer)
+    })
+    try {
+      rpc.events.on("updated", () => void refresh())
+    } catch {}
+
+    const open = () => {
+      const session = ctx.sessions.current() ?? ctx.sessions.list()[0]
+      if (session) ctx.layout.open(`${ctx.id}:fleet`, session, { background: true })
+    }
+
+    ctx.add(Slot, {
+      at: "window.bottom",
+      render: () => (
+        <div class="fl-bar" onClick={open} title="Clique para abrir o painel da frota">
+          <span class="fl-title">FROTA</span>
+          <HostCells hosts={snap()?.hosts ?? []} />
+          <span class="fl-meta">{snap()?.agents.length ?? 0} ag</span>
+          <span class="fl-clock">{clock(snap()?.updated ?? 0)}</span>
+        </div>
+      ),
+    })
+
+    ctx.add(Command, {
+      id: "open",
+      title: "Frota: status ao vivo",
+      description: "Agentes em sessão e modelos residentes nos servidores Ollama",
+      keywords: "fleet ollama agentes servidores modelos",
+      section: "general",
+      slash: { name: "frota" },
+      run: open,
+    })
+
+    ctx.add(Panel, {
+      id: "fleet",
+      region: "side",
+      wide: true,
+      list: (input) =>
+        input.open.includes("fleet")
+          ? [
+              {
+                id: "fleet",
+                title: "Frota",
+                closable: "hover",
+                fallback: true,
+              },
+            ]
+          : [],
+      render: () => <FleetView snap={snap} />,
+    })
+  },
+})

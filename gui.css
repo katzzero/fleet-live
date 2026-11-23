@@ -1,0 +1,147 @@
+.fl-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 22px;
+  padding: 0 10px;
+  font-size: 11px;
+  border-top: 1px solid var(--border, #333);
+  background: var(--background, #111);
+  cursor: pointer;
+  user-select: none;
+}
+
+.fl-title {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.fl-hosts {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fl-host {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 78px;
+  max-width: 150px;
+  flex: 1;
+}
+
+.fl-host-top {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.fl-label {
+  font-weight: 700;
+}
+
+.fl-model {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.8;
+}
+
+.fl-count {
+  margin-left: auto;
+  opacity: 0.55;
+}
+
+.fl-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border, #333);
+  overflow: hidden;
+}
+
+.fl-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.fl-off {
+  color: #e06c75;
+}
+
+.fl-idle {
+  color: #d7ba7d;
+}
+
+.fl-on {
+  color: #98c379;
+}
+
+.fl-clock {
+  opacity: 0.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.fl-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px;
+  font-size: 12px;
+}
+
+.fl-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fl-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.fl-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.fl-agent {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.fl-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fl-meta {
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+.fl-empty {
+  opacity: 0.45;
+}
+
+.fl-hint {
+  opacity: 0.35;
+  font-size: 11px;
+}
