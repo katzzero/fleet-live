@@ -19,6 +19,7 @@ const SIZES: Record<string, string> = {
 }
 
 type Pref = { server: string; project: string; expires: number }
+const PREFS_KEY = "prefs"
 
 function parseTtl(raw: unknown): number {
   if (raw === undefined || raw === null || raw === "") return DEFAULT_TTL
@@ -87,11 +88,30 @@ export default Plugin.define({
   async setup(ctx) {
     const targets = (rows(ctx.options.hosts) as Host[]).filter((h) => h && h.provider && h.baseUrl)
     const hostOf = new Map(targets.map((h) => [h.provider, h.label]))
+    // prefs live in shared plugin storage so every setup() instance sees the same data
+    const storage = (ctx as unknown as {
+      storage: {
+        get: (key: string) => Promise<Pref[] | undefined>
+        set: (key: string, value: Pref[]) => Promise<void>
+      }
+    }).storage
     const prefs = new Map<string, Pref>()
+    async function loadPrefs() {
+      try {
+        const saved = (await storage.get(PREFS_KEY)) ?? []
+        prefs.clear()
+        for (const p of saved) prefs.set(p.server, p)
+      } catch {}
+    }
+    async function savePrefs() {
+      try {
+        await storage.set(PREFS_KEY, [...prefs.values()])
+      } catch {}
+    }
     let states: HostState[] = []
     let callerID = ""
     let allSessions: { id: string; parent: string }[] = []
-    let snap: Snapshot = { updated: 0, agents: [], hosts: [], sessions: [] }
+    let snap: Snapshot = { updated: 0, agents: [], hosts: [], sessions: [], prefs: [] }
     let fleetReg: Awaited<ReturnType<typeof ctx.rpc.register<typeof Fleet>>> | undefined
 
     const root = join(process.env.HOME ?? "", ".config", "opencode")
@@ -130,11 +150,19 @@ export default Plugin.define({
       if (ref) put(file.slice(0, -3), ref)
     }
 
-    function prefLine(now: number) {
+    function activePrefs(now: number) {
       for (const [key, p] of prefs) if (p.expires <= now) prefs.delete(key)
-      if (!prefs.size) return ""
-      const items = [...prefs.values()].map((p) => `${p.server}=${p.project}(${remaining(p.expires - now)})`)
-      return `\npreferências: ${items.join(" | ")}`
+      return [...prefs.values()].map((p) => ({
+        server: p.server,
+        project: p.project,
+        ttl: remaining(p.expires - now),
+      }))
+    }
+
+    function prefLine(now: number) {
+      const items = activePrefs(now)
+      if (!items.length) return ""
+      return `\npreferências: ${items.map((p) => `${p.server}=${p.project}(${p.ttl})`).join(" | ")}`
     }
 
     function configText(filter?: string) {
@@ -222,11 +250,13 @@ export default Plugin.define({
           sessions: byProvider.get(h.provider) ?? [],
         })),
         sessions,
+        prefs: activePrefs(now),
       }
 
       if (fleetReg) void fleetReg.events.emit("updated", { updated: now })
     }
 
+    await loadPrefs()
     await refresh()
     const timer = setInterval(() => void refresh(), POLL)
 
@@ -238,7 +268,10 @@ export default Plugin.define({
             c.id.includes((input as { agent?: string }).agent!),
         ),
       }),
-      snapshot: async () => snap,
+      snapshot: async () => {
+        await loadPrefs()
+        return { ...snap, prefs: activePrefs(Date.now()) }
+      },
     })
 
     const hookReg = await ctx.session.hook("context", (event) => {
@@ -288,12 +321,17 @@ export default Plugin.define({
           const key = String(value.server ?? "").trim().toLowerCase()
           if (!key) return { content: "servidor obrigatório" }
           const label = hostOf.get(key) ?? targets.find((h) => h.label.toLowerCase() === key)?.label ?? key.toUpperCase()
+          await loadPrefs()
           if (!String(value.project ?? "").trim()) {
             prefs.delete(label)
+            await savePrefs()
+            snap.prefs = activePrefs(Date.now())
             return { content: `preferência removida: ${label}` }
           }
           const ttl = parseTtl(value.ttl)
           prefs.set(label, { server: label, project: String(value.project).trim(), expires: Date.now() + ttl })
+          await savePrefs()
+          snap.prefs = activePrefs(Date.now())
           return { content: `preferência: ${label}=${prefs.get(label)!.project} expira em ${remaining(ttl)}` }
         },
       })

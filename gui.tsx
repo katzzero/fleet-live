@@ -70,6 +70,23 @@ function AgentRows(props: { agents: Agent[] }) {
   )
 }
 
+function PrefRows(props: { prefs: Snapshot["prefs"] }) {
+  return (
+    <Show when={props.prefs.length} fallback={<div class="fl-empty">nenhuma preferência declarada</div>}>
+      <For each={props.prefs}>
+        {(p) => (
+          <div class="fl-pref">
+            <span class="fl-pref-server">{p.server}</span>
+            <span class="fl-pref-arrow">→</span>
+            <span class="fl-pref-project">{p.project}</span>
+            <span class="fl-meta">{p.ttl}</span>
+          </div>
+        )}
+      </For>
+    </Show>
+  )
+}
+
 function FleetView(props: { snap: () => Snapshot | undefined }) {
   const s = () => props.snap()
   const active = () => s()?.hosts.filter((h) => h.ok && h.models.length).length ?? 0
@@ -94,6 +111,14 @@ function FleetView(props: { snap: () => Snapshot | undefined }) {
           <span class="fl-meta">{s()?.agents.length ?? 0}</span>
         </div>
         <AgentRows agents={s()?.agents ?? []} />
+      </div>
+
+      <div class="fl-section">
+        <div class="fl-heading">
+          <span>preferências de projeto</span>
+          <span class="fl-meta">{s()?.prefs.length ?? 0}</span>
+        </div>
+        <PrefRows prefs={s()?.prefs ?? []} />
       </div>
 
       <div class="fl-hint">atualização automática a cada 3 s · origem: /api/ps + sessões locais</div>
@@ -136,6 +161,11 @@ export default Plugin.define({
         <div class="fl-bar" onClick={open} title="Clique para abrir o painel da frota">
           <span class="fl-title">FROTA</span>
           <HostCells hosts={snap()?.hosts ?? []} />
+          <Show when={(snap()?.prefs.length ?? 0) > 0}>
+            <span class="fl-prefbar">
+              {snap()!.prefs.map((p) => `${p.server}=${p.project}`).join(" | ")}
+            </span>
+          </Show>
           <span class="fl-meta">{snap()?.agents.length ?? 0} ag</span>
           <span class="fl-clock">{clock(snap()?.updated ?? 0)}</span>
         </div>

@@ -38,6 +38,17 @@ const cfg = {
   additionalProperties: false,
 } as const
 
+const pref = {
+  type: "object",
+  properties: {
+    server: { type: "string" },
+    project: { type: "string" },
+    ttl: { type: "string" },
+  },
+  required: ["server", "project", "ttl"],
+  additionalProperties: false,
+} as const
+
 const host = {
   type: "object",
   properties: {
@@ -76,8 +87,9 @@ export const Fleet = Rpc.define({
           agents: { type: "array", items: agent },
           hosts: { type: "array", items: host },
           sessions: { type: "array", items: session },
+          prefs: { type: "array", items: pref },
         },
-        required: ["updated", "agents", "hosts", "sessions"],
+        required: ["updated", "agents", "hosts", "sessions", "prefs"],
         additionalProperties: false,
       },
     },
@@ -99,6 +111,7 @@ export type Snapshot = {
   agents: { id: string; sessions: string[] }[]
   hosts: { label: string; provider: string; ok: boolean; models: string[]; sessions: string[] }[]
   sessions: { id: string; agent: string; model: string; provider: string; age: number; parentID: string }[]
+  prefs: { server: string; project: string; ttl: string }[]
 }
 
 

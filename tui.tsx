@@ -96,6 +96,17 @@ export default Plugin.define({
                 </text>
               )}
             </For>
+
+            <Show when={(snap()?.prefs.length ?? 0) > 0}>
+              <text fg={context.theme.text.base}>PREFERÊNCIAS</text>
+              <For each={snap()?.prefs ?? []}>
+                {(p) => (
+                  <text fg={context.theme.text.base}>
+                    {p.server} -&gt; {p.project}  {p.ttl}
+                  </text>
+                )}
+              </For>
+            </Show>
           </box>
         </Show>
       ),

@@ -137,6 +137,37 @@
   font-variant-numeric: tabular-nums;
 }
 
+.fl-prefbar {
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.fl-pref {
+  display: grid;
+  grid-template-columns: auto 14px 1fr auto;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0;
+}
+
+.fl-pref-server {
+  font-weight: 700;
+}
+
+.fl-pref-arrow {
+  opacity: 0.4;
+}
+
+.fl-pref-project {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .fl-empty {
   opacity: 0.45;
 }
