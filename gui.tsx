@@ -85,19 +85,19 @@ function TokenView(props: { tokens: Tokens }) {
       when={t().projects.length}
       fallback={
         <div class="fl-empty">
-          total in {compact(t().total.input)} · out {compact(t().total.output)} · cache {compact(t().total.cacheRead)}
+          novo {compact(t().total.input)} · visível {compact(t().total.output)} · raciocínio {compact(t().total.reasoning)} · cache lido {compact(t().total.cacheRead)}
         </div>
       }
     >
       <div class="fl-tok-total">
         <span>geral</span>
         <span class="fl-meta">
-          in {compact(t().total.input)} · out {compact(t().total.output)} · cache {compact(t().total.cacheRead)}
+          novo {compact(t().total.input)} · visível {compact(t().total.output)} · raciocínio {compact(t().total.reasoning)} · cache lido {compact(t().total.cacheRead)}
         </span>
       </div>
       <For each={t().projects}>
         {(p) => (
-          <div class="fl-tok-row" title={`${p.id} · in ${p.input.toLocaleString()} · out ${p.output.toLocaleString()}`}>
+          <div class="fl-tok-row" title={`${p.id} · novo ${p.input.toLocaleString()} · visível ${p.output.toLocaleString()} · raciocínio ${p.reasoning.toLocaleString()} · cache lido ${p.cacheRead.toLocaleString()}`}>
             <div class="fl-tok-line">
               <span class="fl-tok-name">{p.name}</span>
               <span class="fl-meta">{compact(p.input + p.output)}</span>
@@ -217,7 +217,7 @@ export default Plugin.define({
             </span>
           </Show>
           <Show when={snap()?.tokens}>
-            <span class="fl-tokbar" title="tokens: input / output / cache lido">
+            <span class="fl-tokbar" title="tokens: novo (não-cacheado) + visível — cache lido não incluído">
               {compact(snap()!.tokens.total.input + snap()!.tokens.total.output)}
             </span>
           </Show>

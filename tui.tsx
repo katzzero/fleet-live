@@ -99,12 +99,12 @@ export default Plugin.define({
 
             <text fg={context.theme.text.base}>TOKENS</text>
             <text fg={context.theme.text.base}>
-              geral  in {snap()?.tokens.total.input ?? 0}  out {snap()?.tokens.total.output ?? 0}  cache {snap()?.tokens.total.cacheRead ?? 0}
+              geral  novo {snap()?.tokens.total.input ?? 0}  visivel {snap()?.tokens.total.output ?? 0}  raciocinio {snap()?.tokens.total.reasoning ?? 0}  cache-lido {snap()?.tokens.total.cacheRead ?? 0}
             </text>
             <For each={snap()?.tokens.projects ?? []}>
               {(p) => (
                 <text fg={context.theme.text.base}>
-                  {p.name}  in {p.input}  out {p.output}  cache {p.cacheRead}
+                  {p.name}  novo {p.input}  visivel {p.output}  cache-lido {p.cacheRead}
                 </text>
               )}
             </For>

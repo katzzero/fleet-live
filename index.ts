@@ -244,7 +244,7 @@ export default Plugin.define({
       const t = s.tokens.total
       const compact = (n: number) =>
         n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n)
-      const tokLine = `\ntokens: total in ${compact(t.input)} out ${compact(t.output)} cache ${compact(t.cacheRead)}` +
+      const tokLine = `\ntokens: novo ${compact(t.input)} visivel ${compact(t.output)} raciocinio ${compact(t.reasoning)} cache-lido ${compact(t.cacheRead)}` +
         (s.tokens.projects.length
           ? ` | ${s.tokens.projects.slice(0, 4).map((p) => `${p.name} ${compact(p.input + p.output)}`).join(" ")}`
           : "")

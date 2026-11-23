@@ -7,7 +7,7 @@ The core idea: an orchestrator should choose *where* to delegate based on what i
 ## Features
 
 - **Live context block** — a `<fleet-live>` block is injected into the agent's system prompt with active agents, per-host resident models, session IDs, and token totals.
-- **Token accounting** — aggregate `input`/`output`/`reasoning`/`cache` tokens across all sessions, with a grand total and a per-project breakdown (project names derived from each session's `location.directory`).
+- **Token accounting** — aggregate tokens across all sessions with a grand total and a per-project breakdown (project names derived from each session's `location.directory`). Labels match the engine's semantics: `novo` = non-cached input, `visível` = output excluding reasoning, `raciocínio` = reasoning, `cache lido` = prompt-cache reads (reused prefix, not new consumption).
 - **`fleet_status`** — on-demand snapshot of agents in session and resident models per server.
 - **`agent_config`** — resolved model, quantization and context limit for one agent (or all).
 - **`fleet_prefer`** — declare an advisory server↔project affinity with a TTL; never blocks delegation.
