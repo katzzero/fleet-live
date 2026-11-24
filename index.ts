@@ -362,35 +362,62 @@ export default Plugin.define({
       editor.add({
         name: "fleet_prefer",
         description:
-          "Declare which project prefers one server, with optional TTL (default 6h). Omit project to clear. Advisory only; never blocks delegation.",
+          "Declare which project prefers one server, with optional TTL (default 6h). One project per server: locked until TTL expires or the owner clears it. Advisory only; never blocks delegation.",
         input: {
           type: "object",
           properties: {
             server: { type: "string", description: "Server label (S1/S3/S4/S5) or provider id" },
-            project: { type: "string", description: "Project name. Omit or leave empty to clear the preference" },
+            project: { type: "string", description: "Project name. Required to declare or clear" },
             ttl: { type: "string", description: "Lifetime: 30m, 6h, 1d or seconds. Default 6h, max 7d" },
+            clear: { type: "boolean", description: "Remove the preference; project must match the current owner" },
           },
           required: ["server"],
           additionalProperties: false,
         },
         options: { codemode: false },
         execute: async (input) => {
-          const value = input as { server?: string; project?: string; ttl?: string }
+          const value = input as { server?: string; project?: string; ttl?: string; clear?: boolean }
           const key = String(value.server ?? "").trim().toLowerCase()
           if (!key) return { content: "servidor obrigatório" }
           const label = hostOf.get(key) ?? targets.find((h) => h.label.toLowerCase() === key)?.label ?? key.toUpperCase()
+          const now = Date.now()
           await loadPrefs()
-          if (!String(value.project ?? "").trim()) {
+          const current = prefs.get(label)
+          const owner = current && current.expires > now ? current : undefined
+          const requested = String(value.project ?? "").trim()
+          if (value.clear) {
+            if (!owner) {
+              if (current) {
+                prefs.delete(label)
+                await savePrefs()
+                snap.prefs = activePrefs(Date.now())
+              }
+              return { content: current ? `preferência removida: ${label}` : `nenhuma preferência ativa: ${label}` }
+            }
+            if (!requested) return { content: `informe o projeto ${owner.project} para remover: ${label}` }
+            if (requested !== owner.project) {
+              return { content: `preferência travada: ${label}=${owner.project}. Apenas ${owner.project} pode remover.` }
+            }
             prefs.delete(label)
             await savePrefs()
             snap.prefs = activePrefs(Date.now())
             return { content: `preferência removida: ${label}` }
           }
+          if (!requested) {
+            return owner
+              ? { content: `informe o projeto ${owner.project} para renovar, ou use clear com esse projeto` }
+              : { content: `nenhuma preferência ativa: ${label}` }
+          }
+          if (owner && owner.project !== requested) {
+            return {
+              content: `preferência travada: ${label}=${owner.project} (${remaining(owner.expires - now)}). Apenas ${owner.project} pode renovar ou remover.`,
+            }
+          }
           const ttl = parseTtl(value.ttl)
-          prefs.set(label, { server: label, project: String(value.project).trim(), expires: Date.now() + ttl })
+          prefs.set(label, { server: label, project: requested, expires: now + ttl })
           await savePrefs()
           snap.prefs = activePrefs(Date.now())
-          return { content: `preferência: ${label}=${prefs.get(label)!.project} expira em ${remaining(ttl)}` }
+          return { content: `preferência: ${label}=${requested} expira em ${remaining(ttl)}` }
         },
       })
       editor.add({

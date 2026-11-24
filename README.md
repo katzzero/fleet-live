@@ -49,10 +49,12 @@ Restart OpenCode after changing the plugin list or its `options`.
 | --- | --- |
 | `fleet_status` | Live agents and resident models per host. |
 | `agent_config { agent? }` | Model, quantization and context for an agent; omit `agent` for all. |
-| `fleet_prefer { server, project?, ttl? }` | Advisory affinity. TTL accepts `30m`, `6h`, `1d` or seconds; defaults to `6h`, max `7d`. Omit `project` to clear. |
+| `fleet_prefer { server, project?, ttl?, clear? }` | Advisory affinity. TTL accepts `30m`, `6h`, `1d` or seconds; defaults to `6h`, max `7d`. One project per server: locked until TTL expires or the owner clears it with `clear: true` and the same project. |
 | `fleet_interrupt { sessionID?, agent? }` | Stop a running session by full/6-char ID or agent name. Only descendants of the caller are eligible. |
 
 `fleet_interrupt` fails closed: if the calling session cannot be identified, or the target was created by another session, it refuses. This prevents an agent from cancelling work it did not start.
+
+`fleet_prefer` fails closed too: a server already claimed by another project cannot be taken over, renewed or cleared by that project. Only the owner can renew it, or remove it with `clear: true` and the same project. An expired claim becomes free again.
 
 ## UI
 
