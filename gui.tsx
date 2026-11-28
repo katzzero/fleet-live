@@ -30,7 +30,7 @@ function HostCells(props: { hosts: Host[]; disabled?: string[]; onToggle?: (h: H
     <div class={`fl-hosts${props.wrap ? " fl-hosts-wrap" : ""}`}>
       <For each={shown()}>
         {(h) => (
-          <div class="fl-host" title={`${h.label} · ${h.provider} · ${h.models.join(", ") || "livre"}${blocked(h) ? " · DESABILITADO" : ""}`}>
+          <div class="fl-host" title={`${h.label} · ${h.provider} · ${h.models.length} modelo(s) · ${h.sessions.length} sessão(ões)${blocked(h) ? " · DESABILITADO" : ""}`}>
             <div class="fl-host-top">
               <span class="fl-label">{h.label}</span>
               <span class={`fl-model ${state(h)}`}>{blocked(h) ? "desligado" : h.models.length ? shortModel(h.models[0]!) : h.ok ? "livre" : "offline"}</span>
@@ -46,9 +46,6 @@ function HostCells(props: { hosts: Host[]; disabled?: string[]; onToggle?: (h: H
                 >
                   {blocked(h) ? "off" : "on"}
                 </button>
-              </Show>
-              <Show when={h.sessions.length}>
-                <span class="fl-count" title={`${h.sessions.length} sessão(ões) em ${h.label}`}>{h.sessions.length}</span>
               </Show>
             </div>
             <span class={`fl-models ${state(h)}`} title={`${h.models.length} modelo(s) residente(s)`}>{h.models.length}</span>
@@ -157,8 +154,7 @@ function FleetView(props: { snap: () => Snapshot | undefined; onToggle: (h: Host
         <div class="fl-heading">
           <span>servidores</span>
           <span class="fl-meta">
-            {active()}/{s()?.hosts.length ?? 0} com modelo · {s()?.hosts.reduce((n, h) => n + h.sessions.length, 0) ?? 0} sessões
-            {(s()?.disabled.length ?? 0) ? ` · ${s()!.disabled.length} desligados` : ""}
+            {active()}/{s()?.hosts.length ?? 0} com modelo{(s()?.disabled.length ?? 0) ? ` · ${s()!.disabled.length} desligados` : ""}
           </span>
         </div>
         <HostCells hosts={s()?.hosts ?? []} disabled={s()?.disabled ?? []} onToggle={props.onToggle} wrap />

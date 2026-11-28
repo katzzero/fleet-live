@@ -67,9 +67,6 @@
   flex: 0 0 auto;
 }
 
-.fl-hosts:not(.fl-hosts-wrap) .fl-count {
-  display: none;
-}
 
 .fl-host-top {
   display: flex;
@@ -88,11 +85,6 @@
   text-overflow: ellipsis;
   min-width: 0;
   opacity: 0.8;
-}
-
-.fl-count {
-  margin-left: auto;
-  opacity: 0.55;
 }
 
 .fl-track {
