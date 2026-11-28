@@ -11,29 +11,24 @@ const short = (id: string) => id.slice(-6)
 
 const clock = (ts: number) => (ts ? new Date(ts).toLocaleTimeString() : "--:--:--")
 
-const SHORT: Record<string, string> = {
-  "qwen3.8:27b-mxfp8": "qwen27b",
-  "laguna-xs-2.1:mxfp8": "laguna33b",
-  "nemotron-3.5-super:120b-a12b-nvfp4": "nemo120b",
-  "nemotron-3.5-bolt:e4b-mxfp8": "bolt4b",
-  "flint:40b-a2b-qat-int4": "flint40b",
-  "bonsai-2:27b": "bonsai27b",
-  "muse-glimmer:30b-mlx": "muse30b",
-}
-
 const shortModel = (raw: string) => {
   const tag = raw.split("@")[0]!.split("/").pop()!
-  return SHORT[tag] ?? tag
+  const [name = "", variant = ""] = tag.split(":")
+  const base = name.split(/[-._]/)[0]!.replace(/\d+$/, "").slice(0, 8) || "?"
+  const size = variant.match(/^\d+(?:[.,]\d+)?b/i)?.[0] ?? variant.match(/^e\d+b/i)?.[0] ?? ""
+  return size ? `${base}${/^e/i.test(size) ? " " : ""}${size}` : base
 }
 
 const tone = (h: Host) => (!h.ok ? "fl-off" : h.models.length ? "fl-on" : "fl-idle")
 
-function HostCells(props: { hosts: Host[]; disabled?: string[]; onToggle?: (h: Host) => void }) {
+function HostCells(props: { hosts: Host[]; disabled?: string[]; onToggle?: (h: Host) => void; wrap?: boolean; limit?: number }) {
   const blocked = (h: Host) => (props.disabled ?? []).includes(h.provider)
   const state = (h: Host) => (blocked(h) ? "fl-blocked" : tone(h))
+  const shown = () => (props.limit ? props.hosts.slice(0, props.limit) : props.hosts)
+  const extra = () => Math.max(0, props.hosts.length - shown().length)
   return (
-    <div class="fl-hosts">
-      <For each={props.hosts}>
+    <div class={`fl-hosts${props.wrap ? " fl-hosts-wrap" : ""}`}>
+      <For each={shown()}>
         {(h) => (
           <div class="fl-host" title={`${h.label} · ${h.provider} · ${h.models.join(", ") || "livre"}${blocked(h) ? " · DESABILITADO" : ""}`}>
             <div class="fl-host-top">
@@ -53,13 +48,21 @@ function HostCells(props: { hosts: Host[]; disabled?: string[]; onToggle?: (h: H
                 </button>
               </Show>
               <Show when={h.sessions.length}>
-                <span class="fl-count">{h.sessions.length}</span>
+                <span class="fl-count" title={`${h.sessions.length} sessão(ões) em ${h.label}`}>{h.sessions.length}</span>
               </Show>
             </div>
             <span class={`fl-models ${state(h)}`} title={`${h.models.length} modelo(s) residente(s)`}>{h.models.length}</span>
           </div>
         )}
       </For>
+      <Show when={extra() > 0}>
+        <span
+          class="fl-more"
+          title={props.hosts.slice(props.limit).map((h) => `${h.label}: ${h.models.length} modelo(s)`).join(" · ")}
+        >
+          +{extra()}
+        </span>
+      </Show>
     </div>
   )
 }
@@ -154,10 +157,11 @@ function FleetView(props: { snap: () => Snapshot | undefined; onToggle: (h: Host
         <div class="fl-heading">
           <span>servidores</span>
           <span class="fl-meta">
-            {active()}/{s()?.hosts.length ?? 0} ocupados{(s()?.disabled.length ?? 0) ? ` · ${s()!.disabled.length} desligados` : ""}
+            {active()}/{s()?.hosts.length ?? 0} com modelo · {s()?.hosts.reduce((n, h) => n + h.sessions.length, 0) ?? 0} sessões
+            {(s()?.disabled.length ?? 0) ? ` · ${s()!.disabled.length} desligados` : ""}
           </span>
         </div>
-        <HostCells hosts={s()?.hosts ?? []} disabled={s()?.disabled ?? []} onToggle={props.onToggle} />
+        <HostCells hosts={s()?.hosts ?? []} disabled={s()?.disabled ?? []} onToggle={props.onToggle} wrap />
       </div>
 
       <div class="fl-section">
@@ -231,7 +235,7 @@ export default Plugin.define({
       render: () => (
         <div class="fl-bar" onClick={open} title="Clique para abrir o painel da frota">
           <span class="fl-title">FROTA</span>
-          <HostCells hosts={snap()?.hosts ?? []} disabled={snap()?.disabled ?? []} />
+          <HostCells hosts={snap()?.hosts ?? []} disabled={snap()?.disabled ?? []} limit={6} />
           <Show when={(snap()?.prefs.length ?? 0) > 0}>
             <span class="fl-prefbar">
               {snap()!.prefs.map((p) => `${p.server}=${p.project}`).join(" | ")}

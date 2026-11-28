@@ -24,13 +24,30 @@
   min-width: 0;
 }
 
+.fl-hosts-wrap {
+  flex-wrap: wrap;
+}
+
 .fl-host {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 78px;
   max-width: 150px;
-  flex: 1;
+  flex: 1 1 78px;
+}
+
+.fl-more {
+  display: inline-flex;
+  align-items: center;
+  min-width: 24px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border, #333);
+  border-radius: 2px;
+  opacity: 0.6;
 }
 
 .fl-host-top {

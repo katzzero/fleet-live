@@ -14,10 +14,6 @@ type HostState = {
 const POLL = 2_000
 const DEFAULT_TTL = 6 * 60 * 60 * 1000
 const MAX_TTL = 7 * 24 * 60 * 60 * 1000
-const SIZES: Record<string, string> = {
-  "laguna-xs-2.1:mxfp8": "33,9B-A3B",
-}
-
 type Pref = { server: string; project: string; expires: number }
 type Counts = { input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number }
 const PREFS_KEY = "prefs"
@@ -81,15 +77,16 @@ function descendants(root: string, all: { id: string; parent: string }[]): Set<s
 function paramsOf(tag: string): string {
   const quantRaw = tag.match(/qat-int4|mxfp8|nvfp4|int4|mlx/i)?.[0] ?? ""
   const quant = quantRaw.toLowerCase() === "qat-int4" ? "int4 QAT" : quantRaw
-  let size = SIZES[tag] ?? ""
-  if (!size) {
-    const active = tag.match(/(\d+(?:[.,]\d+)?)b-a(\d+)b/i)
-    const e = tag.match(/\be(\d)b\b/i)
-    const total = tag.match(/(\d+(?:[.,]\d+)?)b/i)
-    if (active) size = `${active[1]}B-A${active[2]}B`
-    else if (e) size = `E${e[1]}B`
-    else if (total) size = `${total[1]}B`
-  }
+  const active = tag.match(/(\d+(?:[.,]\d+)?)b-a(\d+)b/i)
+  const e = tag.match(/\be(\d)b\b/i)
+  const total = tag.match(/(\d+(?:[.,]\d+)?)b/i)
+  const size = active
+    ? `${active[1]}B-A${active[2]}B`
+    : e
+      ? `E${e[1]}B`
+      : total
+        ? `${total[1]}B`
+        : tag.split(":")[0]!.split("/").pop()!
   return `${size}${quant ? " " + quant : ""}`.trim() || "?"
 }
 

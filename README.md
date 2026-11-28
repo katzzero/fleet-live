@@ -61,7 +61,7 @@ Restart OpenCode after changing the plugin list or its `options`.
 
 ## UI
 
-- **Desktop** — a `FROTA` bar pinned to the bottom of the window; click it (or run `/frota`) to open the side panel. The panel shows an `on/off` toggle next to each server label.
+- **Desktop** — a `FROTA` bar pinned to the bottom of the window; click it (or run `/frota`) to open the side panel. The panel shows every configured host with an `on/off` toggle; the bar shows the first six plus a `+N` counter. Each model name and size is derived from its tag, so no per-model table needs updating.
 - **Terminal** — a `LIVE …` footer indicator plus a `fleet-status` slash command and panel.
 
 Both UIs poll the RPC snapshot on an interval and also refresh on the `updated` event pushed by the server.
