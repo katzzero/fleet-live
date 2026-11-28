@@ -67,6 +67,10 @@
   flex: 0 0 auto;
 }
 
+.fl-hosts:not(.fl-hosts-wrap) .fl-count {
+  display: none;
+}
+
 .fl-host-top {
   display: flex;
   align-items: baseline;
