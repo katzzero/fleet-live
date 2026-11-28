@@ -50,6 +50,23 @@
   opacity: 0.6;
 }
 
+.fl-hosts:not(.fl-hosts-wrap) .fl-host {
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+
+.fl-hosts:not(.fl-hosts-wrap) .fl-host-top {
+  flex: 1;
+  min-width: 0;
+}
+
+.fl-hosts:not(.fl-hosts-wrap) .fl-models {
+  height: 14px;
+  min-width: 14px;
+  flex: 0 0 auto;
+}
+
 .fl-host-top {
   display: flex;
   align-items: baseline;
@@ -65,6 +82,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  min-width: 0;
   opacity: 0.8;
 }
 
