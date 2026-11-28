@@ -28,8 +28,6 @@ const shortModel = (raw: string) => {
 
 const tone = (h: Host) => (!h.ok ? "fl-off" : h.models.length ? "fl-on" : "fl-idle")
 
-const usage = (h: Host) => `${Math.min(100, h.sessions.length * 25)}%`
-
 function HostCells(props: { hosts: Host[]; disabled?: string[]; onToggle?: (h: Host) => void }) {
   const blocked = (h: Host) => (props.disabled ?? []).includes(h.provider)
   const state = (h: Host) => (blocked(h) ? "fl-blocked" : tone(h))
@@ -58,9 +56,7 @@ function HostCells(props: { hosts: Host[]; disabled?: string[]; onToggle?: (h: H
                 <span class="fl-count">{h.sessions.length}</span>
               </Show>
             </div>
-            <div class="fl-track">
-              <div class={`fl-fill ${state(h)}`} style={{ width: usage(h), background: "currentColor" }} />
-            </div>
+            <span class={`fl-models ${state(h)}`} title={`${h.models.length} modelo(s) residente(s)`}>{h.models.length}</span>
           </div>
         )}
       </For>
