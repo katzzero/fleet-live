@@ -126,9 +126,31 @@ export const Fleet = Rpc.define({
           hosts: { type: "array", items: host },
           sessions: { type: "array", items: session },
           prefs: { type: "array", items: pref },
+          disabled: { type: "array", items: { type: "string" } },
           tokens: tokens,
         },
-        required: ["updated", "agents", "hosts", "sessions", "prefs", "tokens"],
+        required: ["updated", "agents", "hosts", "sessions", "prefs", "disabled", "tokens"],
+        additionalProperties: false,
+      },
+    },
+    setServer: {
+      input: {
+        type: "object",
+        properties: {
+          server: { type: "string" },
+          enabled: { type: "boolean" },
+        },
+        required: ["server", "enabled"],
+        additionalProperties: false,
+      },
+      output: {
+        type: "object",
+        properties: {
+          ok: { type: "boolean" },
+          label: { type: "string" },
+          enabled: { type: "boolean" },
+        },
+        required: ["ok", "label", "enabled"],
         additionalProperties: false,
       },
     },
@@ -151,6 +173,7 @@ export type Snapshot = {
   hosts: { label: string; provider: string; ok: boolean; models: string[]; sessions: string[] }[]
   sessions: { id: string; agent: string; model: string; provider: string; age: number; parentID: string }[]
   prefs: { server: string; project: string; ttl: string }[]
+  disabled: string[]
   tokens: {
     total: { input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number }
     projects: {

@@ -80,6 +80,34 @@
   color: #98c379;
 }
 
+.fl-blocked {
+  color: #888;
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.fl-toggle {
+  padding: 0 4px;
+  font: inherit;
+  font-size: 10px;
+  line-height: 14px;
+  border: 1px solid var(--border, #333);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.fl-toggle-on {
+  color: #98c379;
+  border-color: #98c379;
+}
+
+.fl-toggle-off {
+  color: #888;
+  border-color: #888;
+}
+
 .fl-clock {
   opacity: 0.4;
   font-variant-numeric: tabular-nums;

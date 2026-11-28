@@ -21,6 +21,7 @@ const SIZES: Record<string, string> = {
 type Pref = { server: string; project: string; expires: number }
 type Counts = { input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number }
 const PREFS_KEY = "prefs"
+const DISABLED_KEY = "disabled"
 const zeroCounts = (): Counts => ({ input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 })
 function addTokens(into: Counts, t: any) {
   into.input += Number(t?.input ?? 0)
@@ -100,14 +101,14 @@ export default Plugin.define({
     // prefs live in shared plugin storage so every setup() instance sees the same data
     const storage = (ctx as unknown as {
       storage: {
-        get: (key: string) => Promise<Pref[] | undefined>
-        set: (key: string, value: Pref[]) => Promise<void>
+        get: (key: string) => Promise<unknown>
+        set: (key: string, value: unknown) => Promise<void>
       }
     }).storage
     const prefs = new Map<string, Pref>()
     async function loadPrefs() {
       try {
-        const saved = (await storage.get(PREFS_KEY)) ?? []
+        const saved = ((await storage.get(PREFS_KEY)) ?? []) as Pref[]
         prefs.clear()
         for (const p of saved) prefs.set(p.server, p)
       } catch {}
@@ -115,6 +116,19 @@ export default Plugin.define({
     async function savePrefs() {
       try {
         await storage.set(PREFS_KEY, [...prefs.values()])
+      } catch {}
+    }
+    const disabled = new Set<string>()
+    async function loadDisabled() {
+      try {
+        const saved = ((await storage.get(DISABLED_KEY)) ?? []) as string[]
+        disabled.clear()
+        for (const provider of saved) disabled.add(String(provider))
+      } catch {}
+    }
+    async function saveDisabled() {
+      try {
+        await storage.set(DISABLED_KEY, [...disabled])
       } catch {}
     }
     const projectNames = new Map<string, string>()
@@ -158,9 +172,22 @@ export default Plugin.define({
       hosts: [],
       sessions: [],
       prefs: [],
+      disabled: [],
       tokens: { total: zeroCounts(), projects: [] },
     }
     let fleetReg: Awaited<ReturnType<typeof ctx.rpc.register<typeof Fleet>>> | undefined
+    let providerReg: { dispose: () => Promise<void> } | undefined
+    let hookRegDisabled: { dispose: () => Promise<void> } | undefined
+
+    async function applyServer(host: Host, enabled: boolean) {
+      await loadDisabled()
+      if (enabled) disabled.delete(host.provider)
+      else disabled.add(host.provider)
+      await saveDisabled()
+      snap.disabled = [...disabled]
+      await Promise.all([ctx.provider.reload(), ctx.tool.reload()])
+      return `${host.label} (${host.provider}) ${enabled ? "habilitado" : "DESABILITADO"}`
+    }
 
     const root = join(process.env.HOME ?? "", ".config", "opencode")
     const cfg = JSON.parse(readFileSync(join(root, "opencode.json"), "utf8"))
@@ -236,7 +263,8 @@ export default Plugin.define({
           .map((h) => {
             const resident = h.models.join(",") || "livre"
             const uses = h.sessions.map(short).join(",")
-            return `${h.label}:${resident}${uses ? "<-" + uses : ""}${h.ok ? "" : "[offline]"}`
+            const off = disabled.has(h.provider) ? "[desligado]" : ""
+            return `${h.label}:${resident}${uses ? "<-" + uses : ""}${h.ok ? "" : "[offline]"}${off}`
           })
           .join(" | ") || "nenhum"
       const cfg = agentID ? configs.get(agentID) : undefined
@@ -308,6 +336,7 @@ export default Plugin.define({
         })),
         sessions,
         prefs: activePrefs(now),
+        disabled: [...disabled],
         tokens: collectTokens(listed),
       }
 
@@ -315,6 +344,22 @@ export default Plugin.define({
     }
 
     await loadPrefs()
+    await loadDisabled()
+    providerReg = await ctx.provider.transform((editor) => {
+      for (const provider of disabled) editor.remove(provider)
+    })
+    hookRegDisabled = await ctx.tool.hook("execute.before", (event) => {
+      const e = event as { tool?: string; input?: Record<string, unknown> }
+      const name = String(e.tool ?? "").toLowerCase()
+      if (name !== "task" && name !== "subagent" && !name.endsWith("/task") && !name.endsWith("/subagent")) return
+      const input = (e.input ?? {}) as Record<string, unknown>
+      const agentID = typeof input.agent === "string" ? input.agent : ""
+      const modelRef = typeof input.model === "string" ? input.model : ""
+      const provider = (agentID ? configs.get(agentID)?.provider : undefined) || (modelRef ? modelRef.split("/")[0] : "")
+      if (!provider || !disabled.has(provider)) return
+      const label = hostOf.get(provider) ?? provider
+      throw new Error(`servidor ${label} (${provider}) está desabilitado; use outro agente ou reative com fleet_server`)
+    })
     await refresh()
     const timer = setInterval(() => void refresh(), POLL)
 
@@ -328,7 +373,15 @@ export default Plugin.define({
       }),
       snapshot: async () => {
         await loadPrefs()
-        return { ...snap, prefs: activePrefs(Date.now()) }
+        await loadDisabled()
+        return { ...snap, prefs: activePrefs(Date.now()), disabled: [...disabled] }
+      },
+      setServer: async (input) => {
+        const key = String(input.server ?? "").trim().toLowerCase()
+        const host = targets.find((h) => h.provider === key || h.label.toLowerCase() === key)
+        if (!host || typeof input.enabled !== "boolean") return { ok: false, label: key, enabled: false }
+        await applyServer(host, input.enabled)
+        return { ok: true, label: host.label, enabled: input.enabled }
       },
     })
 
@@ -340,7 +393,7 @@ export default Plugin.define({
     const toolReg = await ctx.tool.transform((editor) => {
       editor.add({
         name: "fleet_status",
-        description: "Live state of agents in sessions and Ollama hosts with resident models.",
+        description: "Live state of agents in sessions and configured hosts with resident models.",
         input: { type: "object", properties: {}, additionalProperties: false },
         options: { codemode: false },
         execute: async () => {
@@ -366,7 +419,7 @@ export default Plugin.define({
         input: {
           type: "object",
           properties: {
-            server: { type: "string", description: "Server label (S1/S3/S4/S5) or provider id" },
+            server: { type: "string", description: "Server label from opencode.json hosts, or provider id" },
             project: { type: "string", description: "Project name. Required to declare or clear" },
             ttl: { type: "string", description: "Lifetime: 30m, 6h, 1d or seconds. Default 6h, max 7d" },
             clear: { type: "boolean", description: "Remove the preference; project must match the current owner" },
@@ -418,6 +471,34 @@ export default Plugin.define({
           await savePrefs()
           snap.prefs = activePrefs(Date.now())
           return { content: `preferência: ${label}=${requested} expira em ${remaining(ttl)}` }
+        },
+      })
+      editor.add({
+        name: "fleet_server",
+        description:
+          "Enable or disable one server for this opencode instance. Disabled servers are removed from the model picker and task delegation to their agents is refused. Persists across restarts. Omit enabled to report status.",
+        input: {
+          type: "object",
+          properties: {
+            server: { type: "string", description: "Server label from opencode.json hosts, or provider id" },
+            enabled: { type: "boolean", description: "true to allow, false to block; omit to report current state" },
+          },
+          required: ["server"],
+          additionalProperties: false,
+        },
+        options: { codemode: false },
+        execute: async (input) => {
+          const value = input as { server?: string; enabled?: boolean }
+          const key = String(value.server ?? "").trim().toLowerCase()
+          if (!key) return { content: "servidor obrigatório" }
+          const host = targets.find((h) => h.provider === key || h.label.toLowerCase() === key)
+          if (!host) return { content: `servidor desconhecido: ${key}. Use ${targets.map((h) => h.label).join("/")}` }
+          await loadDisabled()
+          const isOff = disabled.has(host.provider)
+          if (typeof value.enabled !== "boolean") {
+            return { content: `${host.label} (${host.provider}) ${isOff ? "DESABILITADO" : "habilitado"}` }
+          }
+          return { content: await applyServer(host, value.enabled) }
         },
       })
       editor.add({
@@ -485,6 +566,8 @@ export default Plugin.define({
     return () => {
       clearInterval(timer)
       void hookReg.dispose()
+      void hookRegDisabled?.dispose()
+      void providerReg?.dispose()
       void toolReg.dispose()
       void fleetReg?.dispose()
     }

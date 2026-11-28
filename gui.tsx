@@ -30,21 +30,36 @@ const tone = (h: Host) => (!h.ok ? "fl-off" : h.models.length ? "fl-on" : "fl-id
 
 const usage = (h: Host) => `${Math.min(100, h.sessions.length * 25)}%`
 
-function HostCells(props: { hosts: Host[] }) {
+function HostCells(props: { hosts: Host[]; disabled?: string[]; onToggle?: (h: Host) => void }) {
+  const blocked = (h: Host) => (props.disabled ?? []).includes(h.provider)
+  const state = (h: Host) => (blocked(h) ? "fl-blocked" : tone(h))
   return (
     <div class="fl-hosts">
       <For each={props.hosts}>
         {(h) => (
-          <div class="fl-host" title={`${h.label} · ${h.provider} · ${h.models.join(", ") || "livre"}`}>
+          <div class="fl-host" title={`${h.label} · ${h.provider} · ${h.models.join(", ") || "livre"}${blocked(h) ? " · DESABILITADO" : ""}`}>
             <div class="fl-host-top">
               <span class="fl-label">{h.label}</span>
-              <span class={`fl-model ${tone(h)}`}>{h.models.length ? shortModel(h.models[0]!) : h.ok ? "livre" : "offline"}</span>
+              <span class={`fl-model ${state(h)}`}>{blocked(h) ? "desligado" : h.models.length ? shortModel(h.models[0]!) : h.ok ? "livre" : "offline"}</span>
+              <Show when={props.onToggle !== undefined}>
+                <button
+                  type="button"
+                  class={`fl-toggle ${blocked(h) ? "fl-toggle-off" : "fl-toggle-on"}`}
+                  title={blocked(h) ? `Reativar ${h.label}` : `Desabilitar ${h.label}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    props.onToggle?.(h)
+                  }}
+                >
+                  {blocked(h) ? "off" : "on"}
+                </button>
+              </Show>
               <Show when={h.sessions.length}>
                 <span class="fl-count">{h.sessions.length}</span>
               </Show>
             </div>
             <div class="fl-track">
-              <div class={`fl-fill ${tone(h)}`} style={{ width: usage(h), background: "currentColor" }} />
+              <div class={`fl-fill ${state(h)}`} style={{ width: usage(h), background: "currentColor" }} />
             </div>
           </div>
         )}
@@ -129,7 +144,7 @@ function PrefRows(props: { prefs: Snapshot["prefs"] }) {
   )
 }
 
-function FleetView(props: { snap: () => Snapshot | undefined }) {
+function FleetView(props: { snap: () => Snapshot | undefined; onToggle: (h: Host) => void }) {
   const s = () => props.snap()
   const active = () => s()?.hosts.filter((h) => h.ok && h.models.length).length ?? 0
   return (
@@ -142,9 +157,11 @@ function FleetView(props: { snap: () => Snapshot | undefined }) {
       <div class="fl-section">
         <div class="fl-heading">
           <span>servidores</span>
-          <span class="fl-meta">{active()}/{s()?.hosts.length ?? 0} ocupados</span>
+          <span class="fl-meta">
+            {active()}/{s()?.hosts.length ?? 0} ocupados{(s()?.disabled.length ?? 0) ? ` · ${s()!.disabled.length} desligados` : ""}
+          </span>
         </div>
-        <HostCells hosts={s()?.hosts ?? []} />
+        <HostCells hosts={s()?.hosts ?? []} disabled={s()?.disabled ?? []} onToggle={props.onToggle} />
       </div>
 
       <div class="fl-section">
@@ -200,6 +217,14 @@ export default Plugin.define({
       rpc.events.on("updated", () => void refresh())
     } catch {}
 
+    const toggle = async (h: Host) => {
+      try {
+        const enabled = !(snap()?.disabled ?? []).includes(h.provider)
+        await rpc.setServer({ server: h.provider, enabled })
+        await refresh()
+      } catch {}
+    }
+
     const open = () => {
       const session = ctx.sessions.current() ?? ctx.sessions.list()[0]
       if (session) ctx.layout.open(`${ctx.id}:fleet`, session, { background: true })
@@ -210,7 +235,7 @@ export default Plugin.define({
       render: () => (
         <div class="fl-bar" onClick={open} title="Clique para abrir o painel da frota">
           <span class="fl-title">FROTA</span>
-          <HostCells hosts={snap()?.hosts ?? []} />
+          <HostCells hosts={snap()?.hosts ?? []} disabled={snap()?.disabled ?? []} />
           <Show when={(snap()?.prefs.length ?? 0) > 0}>
             <span class="fl-prefbar">
               {snap()!.prefs.map((p) => `${p.server}=${p.project}`).join(" | ")}
@@ -230,8 +255,8 @@ export default Plugin.define({
     ctx.add(Command, {
       id: "open",
       title: "Frota: status ao vivo",
-      description: "Agentes em sessão e modelos residentes nos servidores Ollama",
-      keywords: "fleet ollama agentes servidores modelos",
+      description: "Agentes em sessão e modelos residentes nos servidores configurados",
+      keywords: "fleet agentes servidores modelos",
       section: "general",
       slash: { name: "frota" },
       run: open,
@@ -252,7 +277,7 @@ export default Plugin.define({
               },
             ]
           : [],
-      render: () => <FleetView snap={snap} />,
+      render: () => <FleetView snap={snap} onToggle={toggle} />,
     })
   },
 })
